@@ -1,171 +1,162 @@
 // imports
-const express = require('express');
-const createErrors = require('http-errors');
-const blogService = require('../services/blog.service');
-const { Blog } = require('../models/blog.model');
-const utils = require('../util');
-const cloudinary = require('../helpers/cloudinary.helper');
+const express = require("express");
+const createErrors = require("http-errors");
+const blogService = require("../services/blog.service");
+const { Blog } = require("../models/blog.model");
+const utils = require("../util");
+const cloudinary = require("../helpers/cloudinary.helper");
 
 const itemsPerPage = 6;
 
-const createBlog = async(req, res, next) => {
-    try {
-        
-        let blogBody = req.body;
+const createBlog = async (req, res, next) => {
+  try {
+    let blogBody = req.body;
 
-        if( req.file ) {
-            blogBody.img = req.file.path;
+    if (req.file) {
+      blogBody.img = req.file.path;
 
-            const uploadResult = await cloudinary.uploader.upload(blogBody.img, {
-                folder: "blogs"
-            });
-    
-            if( uploadResult.secure_url ) {
-                blogBody.img = uploadResult.secure_url;
-            } else {
-                throw createErrors.Forbidden("Opps, image upload failed! Try again.")
-            }
-        }
+      const uploadResult = await cloudinary.uploader.upload(blogBody.img, {
+        folder: "blogs",
+      });
 
-        blogBody.writter = req.body.userId;
-
-        const savedblog = await blogService.createBlog(blogBody)
-        res.send(savedblog);
-
-    } catch (error) {
-        next(error);
+      if (uploadResult.secure_url) {
+        blogBody.img = uploadResult.secure_url;
+      } else {
+        throw createErrors.Forbidden("Opps, image upload failed! Try again.");
+      }
     }
-}
 
-const getBlogList = async(req, res, next) => {
-    try {
+    blogBody.writter = req.body.userId;
 
-        const bloggerId = req.params.bloggerId;
-        const categoryId = req.params.categoryId;
+    const savedblog = await blogService.createBlog(blogBody);
+    res.send(savedblog);
+  } catch (error) {
+    next(error);
+  }
+};
 
-        let searchParams = {};
-        if( bloggerId && bloggerId.toLowerCase() != 'all' ) {
-            searchParams.writter = bloggerId;
-        }
-        if( categoryId && categoryId.toLowerCase() != 'all' ) {
-            searchParams.category = categoryId
-        }
+const getBlogList = async (req, res, next) => {
+  try {
+    const bloggerId = req.params.bloggerId;
+    const categoryId = req.params.categoryId;
 
-        let selectFields = 'posted title img';
-        let perPage = itemsPerPage;
-        let page = req.query.page && req.query.page > 0 ? req.query.page-1 : 0;
-
-        
-        const numBlogs = await blogService.countBlogs(searchParams);
-        let blogs = await blogService.readBlogs(searchParams, selectFields, perPage, page);
-        
-        let totalPages = Math.ceil(numBlogs / perPage);
-        let currentPage = page+1;
-
-        res.send({
-            result: blogs, 
-            totalBlogs: numBlogs,
-            totalPages: totalPages,
-            currentPage: currentPage
-        });
-
-    } catch (error) {
-        next(error);
+    let searchParams = {};
+    if (bloggerId && bloggerId.toLowerCase() != "all") {
+      searchParams.writter = bloggerId;
     }
-}
-
-const getSingleBlog = async(req, res, next) => {
-    try {
-
-        let searchParams = {_id: req.params.blogId};
-        let selectFields = '';
-        let blog = await blogService.readBlogs(searchParams, selectFields);
-
-        blog = blog[0];
-        if( !blog ) {
-            throw createErrors.NotFound('No blog found with this blog id');
-        }
-
-        res.send(blog);
-
-    } catch (error) {
-        next(error);
+    if (categoryId && categoryId.toLowerCase() != "all") {
+      searchParams.category = categoryId;
     }
-}
 
-const reactToBlog = async(req, res, next) => {
-    try {
+    let selectFields = "posted title img";
+    let perPage = itemsPerPage;
+    let page = req.query.page && req.query.page > 0 ? req.query.page - 1 : 0;
 
-        let reactBody = req.body;
-        const searchParams = { _id: reactBody.blogId };
-        const selectFields = '';
+    const numBlogs = await blogService.countBlogs(searchParams);
+    let blogs = await blogService.readBlogs(
+      searchParams,
+      selectFields,
+      perPage,
+      page
+    );
+    let totalPages = Math.ceil(numBlogs / perPage);
+    let currentPage = page + 1;
 
-        let blog = await blogService.readBlogs(searchParams, selectFields);
-        if( blog.length == 0 ) {
-            throw createErrors.NotFound('This blog does not exists');
-        }
+    res.send({
+      result: blogs,
+      totalBlogs: numBlogs,
+      totalPages: totalPages,
+      currentPage: currentPage,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
 
-        blog = blog[0];
-        const updatedBlog = await blogService.reactBlog(blog, reactBody);
-        res.send(updatedBlog);
+const getSingleBlog = async (req, res, next) => {
+  try {
+    let searchParams = { _id: req.params.blogId };
+    let selectFields = "";
+    let blog = await blogService.readBlogs(searchParams, selectFields);
 
-    } catch (error) {
-        next(error);
+    blog = blog[0];
+    if (!blog) {
+      throw createErrors.NotFound("No blog found with this blog id");
     }
-}
 
-const commentToBlog = async(req, res, next) => {
-    try {
+    res.send(blog);
+  } catch (error) {
+    next(error);
+  }
+};
 
-        const commentBody = req.body;
-        if( commentBody.body.trim().length == 0 ) {
-            throw createErrors.BadRequest('Comment must not be empty!');
-        }
+const reactToBlog = async (req, res, next) => {
+  try {
+    let reactBody = req.body;
+    const searchParams = { _id: reactBody.blogId };
+    const selectFields = "";
 
-        const searchParams = { _id: commentBody.blogId };
-        const selectFields = '';
-
-        let blog = await blogService.readBlogs(searchParams, selectFields);
-        if( blog.length == 0 ) {
-            throw createErrors.NotFound('This blog does not exists');
-        }
-        blog = blog[0];
-
-        let updatedBlog = await blogService.postComment(blog, commentBody);
-        res.send(updatedBlog);
-
-    } catch (error) {
-        next(error);
+    let blog = await blogService.readBlogs(searchParams, selectFields);
+    if (blog.length == 0) {
+      throw createErrors.NotFound("This blog does not exists");
     }
-}
 
-const deleteComment = async(req, res, next) => {
-    try {
+    blog = blog[0];
+    const updatedBlog = await blogService.reactBlog(blog, reactBody);
+    res.send(updatedBlog);
+  } catch (error) {
+    next(error);
+  }
+};
 
-        const commentBody = req.body;
-        const searchParams = { _id: commentBody.blogId };
-        const selectFields = '';
-
-        let blog = await blogService.readBlogs(searchParams, selectFields);
-        if( blog.length == 0 ) {
-            throw createErrors.NotFound('This blog does not exists');
-        }
-        blog = blog[0];
-
-        const updatedBlog = await blogService.deleteComment(blog, commentBody);
-        res.send(updatedBlog);
-
-    } catch (error) {
-        next(error);
+const commentToBlog = async (req, res, next) => {
+  try {
+    const commentBody = req.body;
+    if (commentBody.body.trim().length == 0) {
+      throw createErrors.BadRequest("Comment must not be empty!");
     }
-}
 
- // exports
- module.exports = {
-    createBlog,
-    getBlogList,
-    getSingleBlog,
-    reactToBlog,
-    commentToBlog,
-    deleteComment
- }
+    const searchParams = { _id: commentBody.blogId };
+    const selectFields = "";
+
+    let blog = await blogService.readBlogs(searchParams, selectFields);
+    if (blog.length == 0) {
+      throw createErrors.NotFound("This blog does not exists");
+    }
+    blog = blog[0];
+
+    let updatedBlog = await blogService.postComment(blog, commentBody);
+    res.send(updatedBlog);
+  } catch (error) {
+    next(error);
+  }
+};
+
+const deleteComment = async (req, res, next) => {
+  try {
+    const commentBody = req.body;
+    const searchParams = { _id: commentBody.blogId };
+    const selectFields = "";
+
+    let blog = await blogService.readBlogs(searchParams, selectFields);
+    if (blog.length == 0) {
+      throw createErrors.NotFound("This blog does not exists");
+    }
+    blog = blog[0];
+
+    const updatedBlog = await blogService.deleteComment(blog, commentBody);
+    res.send(updatedBlog);
+  } catch (error) {
+    next(error);
+  }
+};
+
+// exports
+module.exports = {
+  createBlog,
+  getBlogList,
+  getSingleBlog,
+  reactToBlog,
+  commentToBlog,
+  deleteComment,
+};

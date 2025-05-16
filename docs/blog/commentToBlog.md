@@ -1,4 +1,5 @@
 ## Comment to blog
+
 To make a comment to a particular blog
 
 **URL**: `localhost:3000/blog/comment`
@@ -8,11 +9,13 @@ To make a comment to a particular blog
 **Authentication**: Required
 
 ## Request body
+
 **Required fields:** `blogId`, `body`
 
 **Optional fields:**
 
 **Data**:
+
 ```bash
 {
     "blogId": "606f2b0e17586e3480477137",
@@ -21,9 +24,11 @@ To make a comment to a particular blog
 ```
 
 ## Success response
+
 **Code**: `200 OK`
 
 **Content**:
+
 ```bash
 {
     "reacts": {
@@ -92,11 +97,13 @@ To make a comment to a particular blog
 ```
 
 ## Error response
+
 **Condition**: If any of required fields is absent, invalid `blogId` or `accessToken` is absent
 
 **Code**: `400 Bad Request`
 
 **Content**:
+
 ```bash
 {
     "error": {

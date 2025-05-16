@@ -1,147 +1,133 @@
 // imports
-const express = require('express');
-const createErrors = require('http-errors');
-const { Blog } = require('../models/blog.model');
+const express = require("express");
+const createErrors = require("http-errors");
+const { Blog } = require("../models/blog.model");
 
 // CRUD
 
- const createBlog = async(blogBody) => {
-    try {
+const createBlog = async (blogBody) => {
+  try {
+    const newBlog = new Blog(blogBody);
+    let savedBlog = await newBlog.save();
 
-        const newBlog = new Blog(blogBody);
-        let savedBlog = await newBlog.save();
+    savedBlog = await savedBlog
+      .populate("writter", "first_name last_name joined")
+      .populate("category", "name")
+      .populate("comments.people", "first_name last_name")
+      .execPopulate();
 
-        savedBlog = await savedBlog
-        .populate('writter', 'first_name last_name joined')
-        .populate('category', 'name')
-        .populate('comments.people', 'first_name last_name')
-        .execPopulate();
+    return Promise.resolve(savedBlog);
+  } catch (error) {
+    return Promise.reject(error);
+  }
+};
 
-        return Promise.resolve(savedBlog);
-
-    } catch (error) {
-        return Promise.reject(error);
+const readBlogs = async (
+  searchParams = {},
+  selectFields = "",
+  perPage = 99999999,
+  page = 0
+) => {
+  try {
+    const blogs = await Blog.find(searchParams)
+      .sort({ posted: -1 })
+      .limit(perPage)
+      .skip(perPage * page)
+      .populate("writter", "first_name last_name joined")
+      .populate("category", "name")
+      .populate("comments.people", "first_name last_name img")
+      .select(selectFields);
+    return Promise.resolve(blogs);
+  } catch (error) {
+    if (error.name == "CastError") {
+      error = createErrors.BadRequest("Invalied blogId");
     }
-}
+    return Promise.reject(error);
+  }
+};
 
-const readBlogs = async(
-    searchParams = {}, 
-    selectFields = '', 
-    perPage = 99999999, 
-    page = 0) => {
-    try {
+const countBlogs = async (countParams) => {
+  try {
+    const numBlogs = await Blog.where(countParams).countDocuments();
+    return Promise.resolve(numBlogs);
+  } catch (error) {
+    if (error.name == "CastError") {
+      error = createErrors.BadRequest("Invalied Id provided");
+    }
+    return Promise.reject(error);
+  }
+};
 
-        const blogs = await Blog
-        .find(searchParams)
-        .limit(perPage)
-        .skip(perPage * page)
-        .populate('writter', 'first_name last_name joined')
-        .populate('category', 'name')
-        .populate('comments.people', 'first_name last_name img')
-        .select(selectFields);
-        return Promise.resolve(blogs);
+const reactBlog = async (blog, reactBody) => {
+  try {
+    const allReacts = ["like", "love", "funny", "sad", "informative"];
+    let oldReactName = "";
 
-    } catch (error) {
-        if( error.name == 'CastError' ) {
-            error = createErrors.BadRequest('Invalied blogId');
+    // remove all reacts of this user
+    allReacts.forEach((react) => {
+      blog.reacts[react] = blog.reacts[react].filter((r) => {
+        if (reactBody.userId == r) {
+          oldReactName = react;
+        } else {
+          return r;
         }
-        return Promise.reject(error);
+      });
+    });
+
+    // set new react
+    if (oldReactName != reactBody.reactName) {
+      blog.reacts[reactBody.reactName].push(reactBody.userId);
     }
-}
 
-const countBlogs = async(countParams) => {
-    try {
+    let updatedBlog = await blog.save();
 
-        const numBlogs = await Blog
-        .where(countParams)
-        .countDocuments();
-        return Promise.resolve(numBlogs);
+    return Promise.resolve(updatedBlog);
+  } catch (error) {
+    return Promise.reject(error);
+  }
+};
 
-    } catch (error) {
-        if( error.name == 'CastError' ) {
-            error = createErrors.BadRequest('Invalied Id provided');
-        }
-        return Promise.reject(error);
-    }
-}
+const postComment = async (blog, commentBody) => {
+  try {
+    blog.comments.push({
+      people: commentBody.userId,
+      body: commentBody.body,
+    });
 
-const reactBlog = async(blog, reactBody) => {
+    let updatedBlog = await blog.save();
+    updatedBlog = await updatedBlog
+      .populate("comments.people", "first_name last_name img")
+      .execPopulate();
 
-    try {
+    return Promise.resolve(updatedBlog);
+  } catch (error) {
+    return Promise.reject(error);
+  }
+};
 
-        const allReacts = ['like', 'love', 'funny', 'sad', 'informative'];
-        let oldReactName = '';
+const deleteComment = async (blog, commentBody) => {
+  try {
+    blog.comments = blog.comments.filter((c) => {
+      if (c._id == commentBody.id && c.people._id == commentBody.userId) {
+        return false;
+      } else {
+        return true;
+      }
+    });
 
-        // remove all reacts of this user
-        allReacts.forEach(react => {
-            blog.reacts[react] = blog.reacts[react].filter(r => {
-                if( reactBody.userId == r ) {
-                    oldReactName = react;
-                } else {
-                    return r;
-                }
-            });
-        });
-
-        // set new react
-        if( oldReactName != reactBody.reactName ) {
-            blog.reacts[reactBody.reactName].push(reactBody.userId);
-        }
-
-        let updatedBlog = await blog.save();
-
-        return Promise.resolve(updatedBlog);
-
-    } catch (error) {
-        return Promise.reject(error);
-    }
-}
-
-const postComment = async(blog, commentBody) => {
-    try {
-
-        blog.comments.push({
-            people: commentBody.userId,
-            body: commentBody.body
-        });
-
-        let updatedBlog = await blog.save();
-        updatedBlog = await updatedBlog
-        .populate('comments.people', 'first_name last_name img')
-        .execPopulate();
-
-        return Promise.resolve(updatedBlog);
-
-    } catch (error) {
-        return Promise.reject(error);
-    }
-}
-
-const deleteComment = async(blog, commentBody) => {
-    try {
-
-        blog.comments = blog.comments.filter(c => {
-            if( c._id == commentBody.id && c.people._id == commentBody.userId ) {
-                return false;
-            } else {
-                return true;
-            }
-        });
-
-        const updatedBlog = await blog.save();
-        return Promise.resolve(updatedBlog);
-
-    } catch (error) {
-        return Promise.reject(error);
-    }
-}
+    const updatedBlog = await blog.save();
+    return Promise.resolve(updatedBlog);
+  } catch (error) {
+    return Promise.reject(error);
+  }
+};
 
 // exports
 module.exports = {
-    createBlog,
-    readBlogs,
-    countBlogs,
-    reactBlog,
-    postComment,
-    deleteComment
-}
+  createBlog,
+  readBlogs,
+  countBlogs,
+  reactBlog,
+  postComment,
+  deleteComment,
+};
