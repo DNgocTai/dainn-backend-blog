@@ -4,9 +4,10 @@
   "description": "This is the backend of a blog app",
   "main": "app.js",
   "scripts": {
-    "start": "node server",
+    "start": "node dist/main.js",
     "dev": "nodemon -L server",
-    "test": "jest"
+    "test": "jest",
+    "build": "tsc"
   },
   "author": "Tazbinur",
   "license": "ISC",
