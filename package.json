@@ -4,7 +4,7 @@
   "description": "This is the backend of a blog app",
   "main": "app.js",
   "scripts": {
-    "start": "node dist/main.js",
+    "start": "node dist/index.js",
     "dev": "nodemon -L server",
     "test": "jest",
     "build": "tsc"
@@ -23,6 +23,7 @@
     "jsonwebtoken": "^8.5.1",
     "mongoose": "^5.12.2",
     "multer": "^1.4.2",
-    "nodemon": "^2.0.20"
+    "nodemon": "^2.0.20",
+    "typescript": "^5.8.3"
   }
 }
